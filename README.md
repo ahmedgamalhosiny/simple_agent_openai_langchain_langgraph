@@ -1,5 +1,7 @@
 DataGen Agent
 
+[text](README.md) ![text](image.PNG)
+
 This is a Gradio-based application for generating sample user data using LangChain and OpenAI.
 
 Features:
