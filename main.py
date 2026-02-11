@@ -1,5 +1,5 @@
 from typing import List
-import json 
+import json
 import random
 import string
 from datetime import datetime, timedelta
@@ -7,7 +7,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
-from langchain.agents import create_agent
+import gradio as gr
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -130,39 +130,56 @@ def run_agent(user_input: str, history: List[BaseMessage]) -> AIMessage:
 
 if __name__ == "__main__":
 
-    print("=" * 60)
-    print("Datagen Agent - Sample Data Generator")
-    print("=" * 60)
+    def chat_function(message, history):
+        # Convert Gradio history to List[BaseMessage]
+        messages = []
+        for user_msg, bot_msg in history:
+            messages.append(HumanMessage(content=user_msg))
+            if bot_msg:
+                messages.append(AIMessage(content=bot_msg))
 
-    print("Generator sample user data and save to JSON files")
-    print()
+        # Add current message
+        messages.append(HumanMessage(content=message))
 
-    print("Examples:")
-    print(" -Generate users named John, Jane, Mike and save to users.json")
-    print(" -Create users with last names Smith, Jones")
-    print(" -Make users aged 25-35 with company.com emails")
-    print()
+        # Run agent with current message and previous history
+        response = run_agent(message, messages)
 
-    print("Commands: 'quite' or 'exit' to end")
-    print("=" * 60)
+        # Return updated history
+        return history + [(message, response.content)]
 
+    def example_click(example_text):
+        return example_text
 
+    with gr.Blocks() as demo:
+        gr.Markdown("# DataGen Agent\n**Generate sample user data and save to JSON files**")
 
-    history: List[BaseMessage] = []
+        gr.Markdown("**How to use:** Simply type your request in natural language. The agent will generate user data and save it to JSON files automatically.")
 
-    while True:
-        user_input = input("You: ").strip()
-        
-        # check for exit commands
-        if user_input.lower() in ['quit', 'exit', 'q', ""]:
-            print("Goodbye!")
-            break
+        gr.Markdown("**Quick Examples:**")
 
-        print("Agent: ", end="", flush=True)
-        response = run_agent(user_input, history)
-        print(response.content)
-        print()
+        with gr.Row():
+            example1 = gr.Button("Generate users named John, Jane, Mike and save to users.json", size="sm")
+            example2 = gr.Button("Create users with last names Smith, Jones", size="sm")
+            example3 = gr.Button("Make users aged 25-35 with company.com emails", size="sm")
 
+        chatbot = gr.Chatbot(height=500, show_label=False)
+        msg = gr.Textbox(
+            placeholder="Type your request here... (e.g., 'Generate 5 users with names Alice, Bob, Charlie')",
+            label="Your Message",
+            lines=1,
+            show_label=False
+        )
+        with gr.Row():
+            submit_btn = gr.Button("🚀 Send", variant="primary", size="sm")
+            clear = gr.ClearButton([msg, chatbot], value="🗑️ Clear Chat", size="sm")
 
-        # update conversation history
-        history += [HumanMessage(content=user_input), response] 
+        gr.Markdown("---\n*Powered by LangChain & OpenAI*")
+
+        # Event handlers
+        msg.submit(chat_function, [msg, chatbot], [chatbot])
+        submit_btn.click(chat_function, [msg, chatbot], [chatbot])
+        example1.click(example_click, inputs=[example1], outputs=[msg])
+        example2.click(example_click, inputs=[example2], outputs=[msg])
+        example3.click(example_click, inputs=[example3], outputs=[msg])
+
+    demo.launch(theme=gr.themes.Soft())
